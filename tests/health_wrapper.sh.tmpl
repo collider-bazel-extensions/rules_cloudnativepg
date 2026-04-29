@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# Generic health-wrapper. Same parametrization as install_wrapper.sh.
 set -euo pipefail
 
-HEALTH_BIN_NAME="${1:?usage: $0 <health_bin_name>}"
+HEALTH_BIN_NAME="__BIN_NAME__"
 CLUSTER_NAME="cluster"
 
 if [[ -z "${RUNFILES_DIR:-}" ]]; then

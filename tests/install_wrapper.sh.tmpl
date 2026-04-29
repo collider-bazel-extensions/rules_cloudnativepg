@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Generic install-wrapper. Takes the install-bin's filename (without .sh)
-# as the single arg via the sh_binary's `args` attr; resolves it via
-# runfiles. Avoids duplicating one wrapper per operator version.
+# Generated per-version. The bin name is baked at genrule time so the
+# wrapper can be exec'd directly by itest_service (which doesn't pass
+# `args` from sh_binary's attr — that only fires under `bazel run`).
 set -euo pipefail
 
-INSTALL_BIN_NAME="${1:?usage: $0 <install_bin_name>}"
+INSTALL_BIN_NAME="__BIN_NAME__"
 CLUSTER_NAME="cluster"
 
 if [[ -z "${RUNFILES_DIR:-}" ]]; then
