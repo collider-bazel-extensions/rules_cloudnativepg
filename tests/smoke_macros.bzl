@@ -66,7 +66,6 @@ def cnpg_default_smoke(version, kind_svc):
         name = "smoke_test_default_{}_bin".format(s),
         srcs = ["smoke_test.sh"],
         data = ["cluster.yaml"],
-        args = ["$(rootpath :cluster.yaml)"],
         tags = ["manual"],
     )
     service_test(

@@ -85,7 +85,6 @@ sh_test(
     name = "smoke_test_certmanager_bin",
     srcs = ["smoke_test_certmanager.sh"],
     data = ["cluster_with_certmanager.yaml"],
-    args = ["$(rootpath :cluster_with_certmanager.yaml)"],
     tags = ["manual"],
 )
 

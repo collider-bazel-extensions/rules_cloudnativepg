@@ -15,8 +15,17 @@
 #   6. Assert the standby's SELECT returns the payload.
 set -euo pipefail
 
-CLUSTER_YAML="${1:?usage: $0 <cluster.yaml>}"
-[[ -f "$CLUSTER_YAML" ]] || { echo "missing cluster yaml: $CLUSTER_YAML" >&2; exit 1; }
+# `service_test` doesn't propagate the wrapped sh_test's `args` to the
+# script — args only fire under `bazel run`. Resolve cluster.yaml via
+# runfiles instead. Same lesson the install/health wrappers learned.
+if [[ -z "${RUNFILES_DIR:-}" ]]; then
+  if [[ -d "${0}.runfiles" ]]; then RUNFILES_DIR="${0}.runfiles"
+  elif [[ -d "$(dirname "$0").runfiles" ]]; then RUNFILES_DIR="$(dirname "$0").runfiles"
+  fi
+  export RUNFILES_DIR
+fi
+CLUSTER_YAML="${RUNFILES_DIR}/_main/tests/cluster.yaml"
+[[ -f "$CLUSTER_YAML" ]] || { echo "smoke_test: cluster.yaml not in runfiles: $CLUSTER_YAML" >&2; exit 1; }
 
 CLUSTER_NAME="cluster"
 env_file="$TEST_TMPDIR/${CLUSTER_NAME}.env"
