@@ -1,0 +1,69 @@
+# CNPG Cluster consuming a cert-manager-issued postgres server cert.
+#
+# Composes rules_certmanager + rules_cloudnativepg. CNPG accepts an
+# external Secret as its server TLS material via `spec.certificates`;
+# cert-manager populates that Secret from a Certificate CR.
+#
+# rules_cloudnativepg's `tests/smoke_test_certmanager.sh` exercises
+# this exact composition. Production would back the issuer with a real
+# CA (Vault, AWS PCA, …) instead of SelfSigned.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: app
+---
+# 1. The issuer — replace with your real CA-backed issuer.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: app-selfsigned
+spec:
+  selfSigned: {}
+---
+# 2. The Certificate that produces the Secret CNPG consumes. cert-manager
+#    fills `tls.crt` + `tls.key` + `ca.crt` keys.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: app-db-server-cert
+  namespace: app
+spec:
+  secretName: app-db-server-tls
+  issuerRef:
+    name: app-selfsigned
+    kind: ClusterIssuer
+  commonName: app-db-rw.app.svc
+  # CNPG validates the cert against per-pod DNS names. Cover the rw/ro
+  # Services + the pods themselves.
+  dnsNames:
+    - app-db-rw
+    - app-db-rw.app
+    - app-db-rw.app.svc
+    - app-db-rw.app.svc.cluster.local
+    # Per-pod (StatefulSet pods get -1, -2, -3 suffixes). Add as many
+    # entries as `spec.instances` in the Cluster CR below.
+    - app-db-1
+    - app-db-1.app-db-rw
+    - app-db-1.app-db-rw.app.svc
+    - app-db-1.app-db-rw.app.svc.cluster.local
+  usages:
+    - server auth
+    - digital signature
+    - key encipherment
+---
+# 3. The Cluster, pointing at the cert-manager Secret.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: app-db
+  namespace: app
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:16.6
+  storage:
+    size: 1Gi
+    storageClass: standard
+  certificates:
+    serverTLSSecret: app-db-server-tls
+    serverCASecret: app-db-server-tls   # the SelfSigned cert is its own CA

@@ -1,0 +1,99 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  analysis:
+    name: bazel test (ubuntu-latest, analysis)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bazel-contrib/setup-bazel@0.15.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}-analysis
+          repository-cache: true
+
+      - name: bazel build //...
+        run: bazel build //...
+
+      - name: bazel test (analysis only)
+        run: bazel test //... --test_tag_filters=-manual --test_output=errors
+
+      - name: Smoke composition builds
+        run: bazel build //tests:smoke_test_default_0_27_1 //tests:smoke_test_default_0_28_0 //tests:smoke_test_certmanager
+
+      - name: Upload test logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bazel-testlogs-analysis
+          path: bazel-testlogs/
+          if-no-files-found: ignore
+
+  smoke_default:
+    # Default smoke matrix: kind + CNPG operator (per version) + 3-instance
+    # Cluster CR + replication round-trip assertion.
+    name: smoke default (op ${{ matrix.operator_version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        operator_version: ["0.27.1", "0.28.0"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bazel-contrib/setup-bazel@0.15.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}-smoke-${{ matrix.operator_version }}
+          repository-cache: true
+
+      - name: Verify Docker is available
+        run: docker version
+
+      - name: bazel test //tests:smoke_test_default_${{ matrix.operator_version }}
+        run: |
+          slug=$(echo "${{ matrix.operator_version }}" | tr '.' '_')
+          bazel test "//tests:smoke_test_default_${slug}" \
+            --test_output=streamed --test_timeout=900
+
+      - name: Upload test logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bazel-testlogs-smoke-default-${{ matrix.operator_version }}
+          path: bazel-testlogs/
+          if-no-files-found: ignore
+
+  smoke_certmanager:
+    # cert-manager + CNPG composition: cluster consumes a cert-manager-
+    # issued postgres server cert. Latest operator only — no value in
+    # re-running the same composition with the older operator version.
+    name: smoke cert-manager (op 0.28.0)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bazel-contrib/setup-bazel@0.15.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}-smoke-cm
+          repository-cache: true
+
+      - name: Verify Docker is available
+        run: docker version
+
+      - name: bazel test //tests:smoke_test_certmanager
+        run: bazel test //tests:smoke_test_certmanager --test_output=streamed --test_timeout=900
+
+      - name: Upload test logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bazel-testlogs-smoke-cm
+          path: bazel-testlogs/
+          if-no-files-found: ignore

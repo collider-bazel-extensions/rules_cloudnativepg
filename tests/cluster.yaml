@@ -1,0 +1,31 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: smoke
+---
+# Minimal 3-instance Cluster CR for the default smoke. Proves CNPG's
+# multi-instance HA (primary + 2 standbys with streaming replication).
+# kind ships a single node by default — the 3 pods schedule on the same
+# node but communicate via cluster DNS, run streaming replication etc.
+# We're testing the operator's logic, not Kubernetes scheduling.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: smoke
+  namespace: smoke
+spec:
+  instances: 3
+  imageName: ghcr.io/cloudnative-pg/postgresql:16.6
+  storage:
+    size: 256Mi
+    # kind's local-path-provisioner. All 3 PVCs bind to the same node's
+    # local disk (they're effectively local-path). Production would use
+    # a real StorageClass with topology-aware ReadWriteOnce volumes.
+    storageClass: standard
+  postgresql:
+    parameters:
+      # Smaller defaults — keeps the postgres image's startup tighter
+      # and the test's wall-clock down.
+      shared_buffers: "32MB"
+      max_connections: "20"

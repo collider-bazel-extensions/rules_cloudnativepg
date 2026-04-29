@@ -1,0 +1,32 @@
+# Render-time values for rules_cloudnativepg's pinned operator manifests.
+#
+# Smoke-test footprint: 1 operator replica, monitoring + grafana subchart
+# off, webhook self-signed by the operator (chart's default — the chart
+# does not expose a cert-manager toggle for the webhook cert; that path
+# is handled inside the operator itself).
+#
+# These are the values used at maintainer-render time. Consumers see
+# only the resulting YAML at private/manifests/cloudnativepg-<ver>.yaml.
+
+replicaCount: 1
+
+# Disable the bundled `cluster` subchart (aliased as `monitoring`) — it
+# ships sample Cluster CRs we don't want in the operator install. Cluster
+# CRs are a CONSUMER concern (see README "Defining Clusters" section).
+monitoring:
+  podMonitorEnabled: false
+  grafanaDashboard:
+    create: false
+
+# Mutating webhook is required (it sets defaults on Cluster CRs). Leave
+# the failurePolicy at Fail — the chart bundles the cert via initContainer,
+# so the race the value system wants us to avoid (`Ignore` to dodge a
+# self-mint race) doesn't apply here. CNPG handles its own cert lifecycle.
+webhook:
+  port: 9443
+  mutating:
+    create: true
+    failurePolicy: Fail
+  validating:
+    create: true
+    failurePolicy: Fail

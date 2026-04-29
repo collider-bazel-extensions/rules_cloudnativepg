@@ -1,0 +1,79 @@
+"""rules_cloudnativepg — hermetic CloudNativePG operator install for Bazel test compositions.
+
+Pure glue over rules_kubectl + rules_helm: macros emit kubectl_apply /
+kubectl_apply_health_check targets pre-configured for the CNPG operator.
+
+Multi-version: 0.27.x and 0.28.x supported side-by-side (matrix-tested in CI).
+"""
+
+module(
+    name = "rules_cloudnativepg",
+    version = "0.1.0",
+)
+
+bazel_dep(name = "bazel_skylib", version = "1.8.2")
+bazel_dep(name = "platforms", version = "1.0.0")
+
+bazel_dep(name = "rules_kubectl", version = "0.1.0")
+git_override(
+    module_name = "rules_kubectl",
+    remote = "https://github.com/collider-bazel-extensions/rules_kubectl",
+    commit = "bb75b97850b08a18abcdca7af86514561a122b03",  # v0.1.0
+)
+
+# ---- dev-only: smoke composition --------------------------------------------
+bazel_dep(name = "rules_itest", version = "0.0.52", dev_dependency = True)
+bazel_dep(name = "rules_shell", version = "0.8.0", dev_dependency = True)
+
+bazel_dep(name = "rules_kind", version = "0.1.2", dev_dependency = True)
+git_override(
+    module_name = "rules_kind",
+    remote = "https://github.com/collider-bazel-extensions/rules_kind",
+    commit = "b9c4670646f8e3772816f56a048e311d5310a763",  # v0.1.2
+)
+
+bazel_dep(name = "rules_helm", version = "0.2.1", dev_dependency = True)
+git_override(
+    module_name = "rules_helm",
+    remote = "https://github.com/collider-bazel-extensions/rules_helm",
+    commit = "48651387d55f0c50f6d059df246ed73767100afb",  # v0.2.1
+)
+
+# rules_certmanager — used by the cert-manager-TLS variant of the smoke
+# (composes cert-manager + CNPG to issue postgres server certs).
+bazel_dep(name = "rules_certmanager", version = "0.1.2", dev_dependency = True)
+git_override(
+    module_name = "rules_certmanager",
+    remote = "https://github.com/collider-bazel-extensions/rules_certmanager",
+    commit = "bff7f86589c7a58a42a989f08cb098d790963f06",  # v0.1.2
+)
+
+helm = use_extension("@rules_helm//:extensions.bzl", "helm", dev_dependency = True)
+helm.version(version = "3.20.2")
+use_repo(helm,
+    "helm_linux_amd64",
+    "helm_darwin_amd64",
+    "helm_darwin_arm64",
+)
+register_toolchains(
+    "@helm_linux_amd64//:toolchain",
+    "@helm_darwin_amd64//:toolchain",
+    "@helm_darwin_arm64//:toolchain",
+    dev_dependency = True,
+)
+
+cert_manager = use_extension("@rules_certmanager//:extensions.bzl", "cert_manager", dev_dependency = True)
+cert_manager.version(version = "1.18.3")
+use_repo(cert_manager, "cert_manager")
+register_toolchains("@cert_manager//:all", dev_dependency = True)
+
+# Maintainer-only chart fetch — pulls in the CNPG charts at the SHAs
+# pinned in tools/versions.bzl. Each `version()` tag materializes one
+# `cnpg_chart_<dotted_version>` repo.
+cnpg_chart = use_extension("//tools:extensions.bzl", "cnpg_chart", dev_dependency = True)
+cnpg_chart.version(version = "0.27.1")
+cnpg_chart.version(version = "0.28.0")
+use_repo(cnpg_chart,
+    "cnpg_chart_0_27_1",
+    "cnpg_chart_0_28_0",
+)

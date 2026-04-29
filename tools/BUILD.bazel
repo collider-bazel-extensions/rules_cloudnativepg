@@ -1,0 +1,65 @@
+"""Maintainer-only render flow — one helm_template + writeback per version.
+
+Pipeline (per version):
+  @cnpg_chart_<ver>//:files + //config:cnpg-values.yaml
+                       │
+                       ▼  helm_template (rules_helm)
+                       ▼
+       bazel-bin/tools/cloudnativepg_<ver>.yaml
+                       │
+                       ▼  bazel run //tools:render_writeback_<ver>
+                       ▼
+    private/manifests/cloudnativepg-<ver>.yaml (committed)
+
+Render uses release name `cnpg` so the operator Deployment is named
+`cnpg-controller-manager` (the chart computes "<release>-cloudnative-pg"
+when release name != chart name; using release name = "cnpg" gives the
+short, predictable name we wait on).
+"""
+
+load("@rules_helm//:defs.bzl", "helm_template")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
+# ---- 0.27.1 -----------------------------------------------------------------
+
+helm_template(
+    name = "render_cnpg_0_27_1",
+    chart = ["@cnpg_chart_0_27_1//:files"],
+    values = ["//config:cnpg-values.yaml"],
+    namespace = "cnpg-system",
+    release_name = "cnpg",
+    include_crds = True,
+)
+
+sh_binary(
+    name = "render_writeback_0_27_1",
+    srcs = ["writeback.sh"],
+    data = [":render_cnpg_0_27_1"],
+    args = [
+        "$(rootpath :render_cnpg_0_27_1)",
+        "private/manifests/cloudnativepg-0.27.1.yaml",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# ---- 0.28.0 -----------------------------------------------------------------
+
+helm_template(
+    name = "render_cnpg_0_28_0",
+    chart = ["@cnpg_chart_0_28_0//:files"],
+    values = ["//config:cnpg-values.yaml"],
+    namespace = "cnpg-system",
+    release_name = "cnpg",
+    include_crds = True,
+)
+
+sh_binary(
+    name = "render_writeback_0_28_0",
+    srcs = ["writeback.sh"],
+    data = [":render_cnpg_0_28_0"],
+    args = [
+        "$(rootpath :render_cnpg_0_28_0)",
+        "private/manifests/cloudnativepg-0.28.0.yaml",
+    ],
+    visibility = ["//visibility:public"],
+)

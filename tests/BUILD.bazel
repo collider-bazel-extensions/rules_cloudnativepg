@@ -1,0 +1,101 @@
+"""Tests for rules_cloudnativepg.
+
+- Analysis tests verify the macro instantiates cleanly per operator
+  version.
+- Default smoke composition (one per operator version): kind cluster +
+  CNPG operator install + a 3-instance Cluster CR. Smoke writes a row
+  on the primary pod, reads it back from a standby pod, asserts the
+  replication round-trip — proves operator + streaming replication +
+  multi-instance HA all work.
+- Cert-manager smoke composition: kind + cert-manager + CNPG operator +
+  a Cluster CR that asks CNPG to use cert-manager-issued certs for the
+  postgres server cert. Asserts the cluster comes up healthy with the
+  cert-manager-minted cert. Proves the rules_certmanager + rules_cloudnativepg
+  composition delivers cert-manager-managed postgres TLS — a real
+  production pattern.
+"""
+
+load("@rules_certmanager//:defs.bzl", "cert_manager_health_check", "cert_manager_install")
+load("@rules_cloudnativepg//:defs.bzl", "cloudnativepg_health_check", "cloudnativepg_install")
+load("@rules_itest//:itest.bzl", "itest_service", "service_test")
+load("@rules_kind//:defs.bzl", "kind_cluster", "kind_health_check")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load(":analysis_tests.bzl", "cloudnativepg_install_test_suite")
+load(":smoke_macros.bzl", "cnpg_default_smoke")
+
+# ---- analysis ---------------------------------------------------------------
+
+cloudnativepg_install_test_suite(name = "cloudnativepg_install_analysis_0_27_1", operator_version = "0.27.1")
+cloudnativepg_install_test_suite(name = "cloudnativepg_install_analysis_0_28_0", operator_version = "0.28.0")
+
+# ---- shared cluster ---------------------------------------------------------
+
+kind_cluster(name = "cluster", k8s_version = "1.32")
+kind_health_check(name = "cluster_health", cluster = ":cluster")
+itest_service(
+    name = "kind_svc",
+    exe = ":cluster",
+    health_check = ":cluster_health",
+    tags = ["manual"],
+)
+
+# ---- per-version default smoke ----------------------------------------------
+
+cnpg_default_smoke(version = "0.27.1", kind_svc = ":kind_svc")
+cnpg_default_smoke(version = "0.28.0", kind_svc = ":kind_svc")
+
+# ---- cert-manager + CNPG smoke (latest operator only) -----------------------
+# Composes rules_certmanager + rules_cloudnativepg. The Cluster CR asks
+# CNPG to use cert-manager-issued certs for the postgres server cert.
+
+cert_manager_install(name = "cert_manager_install_bin", tags = ["manual"])
+cert_manager_health_check(name = "cert_manager_health_bin", tags = ["manual"])
+
+sh_binary(
+    name = "cert_manager_install_wrapper",
+    srcs = ["cert_manager_install_wrapper.sh"],
+    data = [":cert_manager_install_bin"],
+)
+
+sh_binary(
+    name = "cert_manager_health_wrapper",
+    srcs = ["cert_manager_health_wrapper.sh"],
+    data = [":cert_manager_health_bin"],
+)
+
+itest_service(
+    name = "cert_manager_svc",
+    exe = ":cert_manager_install_wrapper",
+    deps = [":kind_svc"],
+    health_check = ":cert_manager_health_wrapper",
+    tags = ["manual"],
+)
+
+# Reuse the per-version operator install (latest) chained behind cert-manager.
+itest_service(
+    name = "cnpg_svc_with_cm",
+    exe = ":cnpg_install_0_28_0_wrapper",
+    deps = [":cert_manager_svc"],   # waits for cert-manager Available
+    health_check = ":cnpg_health_0_28_0_wrapper",
+    tags = ["manual"],
+)
+
+sh_test(
+    name = "smoke_test_certmanager_bin",
+    srcs = ["smoke_test_certmanager.sh"],
+    data = ["cluster_with_certmanager.yaml"],
+    args = ["$(rootpath :cluster_with_certmanager.yaml)"],
+    tags = ["manual"],
+)
+
+service_test(
+    name = "smoke_test_certmanager",
+    services = [":cnpg_svc_with_cm"],
+    test = ":smoke_test_certmanager_bin",
+    tags = [
+        "manual",
+        "no-sandbox",
+        "requires-network",
+    ],
+)

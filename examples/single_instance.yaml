@@ -1,0 +1,27 @@
+# Single-instance Cluster — the smallest viable CNPG cluster.
+#
+# Use case: dev / smoke / single-node tests where HA is overkill.
+# rules_pg covers single-node Postgres directly; this example exists
+# so consumers can compare and pick the right tool.
+#
+# To deploy:
+#   1. Apply rules_cloudnativepg's pinned operator manifest (e.g. via
+#      `cloudnativepg_install` in your BUILD).
+#   2. `kubectl apply -f single_instance.yaml`
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: app
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: app-db
+  namespace: app
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:16.6
+  storage:
+    size: 1Gi
+    storageClass: standard   # kind's local-path; replace with a real SC in prod

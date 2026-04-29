@@ -1,0 +1,37 @@
+# 3-instance HA Cluster — primary + 2 streaming replicas.
+#
+# Use case: production-shaped setup (in tests; real prod would also
+# configure backups, monitoring, affinity, etc.). This is what
+# rules_pg DOESN'T do — the value-add of CNPG over single-node pg
+# is HA + automatic failover + streaming replication.
+#
+# rules_cloudnativepg's default smoke uses this exact shape; if you
+# want to see it round-trip a write/read across primary + standby,
+# read tests/smoke_test.sh.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: app
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: app-db
+  namespace: app
+spec:
+  instances: 3
+  imageName: ghcr.io/cloudnative-pg/postgresql:16.6
+  storage:
+    size: 10Gi
+    storageClass: standard
+  postgresql:
+    parameters:
+      shared_buffers: "256MB"
+      max_connections: "200"
+  # Anti-affinity: spread the three instances across nodes when the
+  # cluster has them. Single-node kind ignores this; production EKS/GKE
+  # honors it.
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: kubernetes.io/hostname
