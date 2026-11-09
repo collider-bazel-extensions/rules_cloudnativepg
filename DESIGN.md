@@ -36,6 +36,7 @@ toolchain. **Differs in two ways:**
 | 15 | CI matrix | Default smoke runs against **both** operator versions (0.27.1, 0.28.0). cert-manager smoke runs against the **latest** operator only (no value in re-running the same composition with the older operator). Total: 3 service-test cells. | Pragmatic CI minutes |
 | 16 | Naming | snake_case rules/macros, `MixedCaseInfo` providers (none in v0.1), `UPPER_SNAKE` constants. | All siblings |
 | 17 | Update workflow | `bash tools/render_cnpg.sh <chart-version>` → thin shim around `bazel run //tools:render_writeback_<dotted_version>`. Rendering each supported version is a separate writeback target. Adding a new version requires edits in 5 places (versions.bzl, BUILD.bazel under tools, MODULE.bazel, defs.bzl, manifests/BUILD.bazel) — see render_cnpg.sh comment. | rules_loki precedent |
+| 18 | Release archive (v0.1.1) | `tests/` (dev-only `rules_itest`, `rules_kind`, `rules_helm`, `rules_certmanager`) and `tools/` (maintainer chart render) are `export-ignore` (`.gitattributes`), so `@rules_cloudnativepg//...` loads for consumers. `REPO.bazel` `ignore_directories` would also hide them from this repo's own `bazel test`. A `git_override` clone still contains them. CI's `consumer` job (`.github/consumer/check.sh`) queries and builds `//...` from the commit's `git archive`. | Same fix as rules_kubectl#5 |
 
 ## CNPG-specific notes
 

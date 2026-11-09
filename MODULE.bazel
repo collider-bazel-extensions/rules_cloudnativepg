@@ -8,7 +8,7 @@ Multi-version: 0.27.x and 0.28.x supported side-by-side (matrix-tested in CI).
 
 module(
     name = "rules_cloudnativepg",
-    version = "0.1.0",
+    version = "0.1.1",
 )
 
 bazel_dep(name = "bazel_skylib", version = "1.8.2")
