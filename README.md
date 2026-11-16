@@ -285,3 +285,11 @@ PRs welcome. Conventions match the sibling rule sets:
 - macOS validation (the rule is platform-independent).
 - HA failover smoke (kill primary, assert standby promotion).
 - Backup smoke (would compose with minio for S3-compatible storage).
+
+---
+
+## Requesting a new rules package
+
+Want Bazel rules for another tool or service?
+[Request a rules package](https://github.com/collider-bazel-extensions/.github/issues/new?template=request-a-rules-package.yml).
+The [organization page](https://github.com/collider-bazel-extensions) lists every package.
