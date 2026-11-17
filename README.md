@@ -42,7 +42,7 @@ Validated on Linux x86\_64 in CI; macOS pending.
 ## Installation
 
 ```python
-bazel_dep(name = "rules_cloudnativepg", version = "0.1.1")
+bazel_dep(name = "rules_cloudnativepg", version = "0.1.2")
 ```
 
 `rules_cloudnativepg` is **Bzlmod-only** in v0.1. Until BCR, consume
@@ -293,3 +293,9 @@ PRs welcome. Conventions match the sibling rule sets:
 Want Bazel rules for another tool or service?
 [Request a rules package](https://github.com/collider-bazel-extensions/.github/issues/new?template=request-a-rules-package.yml).
 The [organization page](https://github.com/collider-bazel-extensions) lists every package.
+
+## License
+
+[Apache License 2.0](LICENSE) (SPDX: `Apache-2.0`).
+
+Manifests in `private/manifests/` that are rendered from upstream charts or releases remain under their upstream projects' licences.
